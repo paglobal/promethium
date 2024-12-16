@@ -3,20 +3,29 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "dev:package": "cd package && npm run dev",
-    "dev:test": "cd test && npm run dev",
-    "dev:all": "concurrently \"npm run dev:package\" \"npm run dev:test\"",
-    "install:package": "cd package && npm install",
-    "install:test": "cd test && npm install",
-    "install:all": "concurrently \"npm install\" \"npm run install:package\" \"npm run install:test\"",
-    "build:package": "cd package && npm run build",
-    "build:test": "cd test && npm run build",
-    "build:all": "concurrently \"npm run build:package\" \"npm run build:test\"",
-    "on:package": "cd package &&",
-    "on:test": "cd test &&"
+    "package:dev": "cd package && pnpm run dev",
+    "package:install": "cd package && pnpm install",
+    "package:build": "cd package && pnpm run build",
+    "package:publish": "cd package && pnpm publish",
+    "package:cmd": "cd package &&",
+    "package:clean": "cd package && pnpm run clean",
+    "package:test": "cd package && pnpm test",
+    "package:type-test": "cd package && pnpm type-test",
+    "package:coverage": "cd package && pnpm run coverage",
+    "package:uninstall": "cd package && pnpm uninstall",
+    "test:dev": "cd test && pnpm run dev",
+    "test:install": "cd test && pnpm install",
+    "test:build": "cd test && pnpm run build",
+    "test:preview": "cd test && pnpm run preview",
+    "test:cmd": "cd test &&",
+    "test:link-package": "cd test && pnpm link ../package",
+    "test:uninstall": "cd test && pnpm uninstall",
+    "dev": "concurrently \"pnpm run package:dev\" \"pnpm run test:dev\" \"pnpm run package:test\"",
+    "build": "concurrently \"pnpm run package:build\" \"pnpm run test:build\"",
+    "install": "concurrently \"pnpm run package:install\" \"pnpm run test:install\""
   },
   "license": "MIT",
   "devDependencies": {
-    "concurrently": "^8.0.1"
+    "concurrently": "^8.2.1"
   }
 }

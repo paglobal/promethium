@@ -1,24 +1,34 @@
-import { updateMemoCleanups } from "../cleanupUpdateFns";
-import { sendStaleSignals, sendFreshSignals } from "../sendSignals";
-import { State } from "./stateTypes";
+import { sendSignals } from "../sendSignals";
+import { InternalStateObject } from "./stateTypes";
 
-export default function set<T>(state: State<T>, nextValue: T) {
-  //get active subscriptions to properly manange sync effects and memos
-  const activeSubscriptions = state.activeSubscriptions;
-  //toggle active subscriptions
-  state.activeSubscriptions = activeSubscriptions === "one" ? "two" : "one";
+export const imperativeUpdate = Symbol("imperativeUpdate");
+
+export default function set<T>(
+  state: InternalStateObject<T>,
+  nextValue:
+    | T
+    | typeof imperativeUpdate
+    | ((prev: T) => T | typeof imperativeUpdate),
+) {
+  const newStateValue =
+    typeof nextValue === "function"
+      ? (nextValue as (prev: T) => T)(state.value!)
+      : nextValue;
+
+  if (newStateValue === state.value && newStateValue !== imperativeUpdate) {
+    return;
+  }
 
   //let subscriptions know that they have a stale value so that they can notify their
   //subscriptions if any
-  sendStaleSignals(state, activeSubscriptions);
+  sendSignals(state, "stale");
 
   //update state value
-  state.value = nextValue;
+  if (newStateValue !== imperativeUpdate) {
+    state.value = newStateValue as T;
+  }
 
   //let subscriptions know that their stale value has been updated so that they can notify and
   //update themselves and their subscriptions if any
-  sendFreshSignals(state, activeSubscriptions);
-
-  //update memo cleanups after all effects have been fired to ensure that no memos are run twice, triggering their effects
-  updateMemoCleanups();
+  sendSignals(state, "fresh");
 }

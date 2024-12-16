@@ -1,10 +1,9 @@
 import createEffect from "./createEffect";
-import { Getter } from "../adaptState/stateTypes";
-import { EffectFn, EffectOptions } from "./effectTypes";
+import { EffectFn, EffectOptions, ExecuteFn, DepArray } from "./effectTypes";
 
-export default function adaptRenderEffect(
-  fn: EffectFn,
-  depArray?: Getter<any>[],
+export default function adaptRenderEffect<T = any, U extends any[] = any[]>(
+  fn: EffectFn<T, U>,
+  depArray?: DepArray<U>,
   options?: EffectOptions
 ) {
   //determine if the effect is tracked by the state it uses implicitly, or using the
@@ -17,7 +16,7 @@ export default function adaptRenderEffect(
   //resolves with the cleanup function / component cleanup array
   return new Promise<() => void>((resolve) => {
     queueMicrotask(() =>
-      resolve(execute(effect, fn, depArray, options) as () => void)
+      resolve(execute(effect, fn, depArray!, options) as ReturnType<ExecuteFn>)
     );
   });
 }

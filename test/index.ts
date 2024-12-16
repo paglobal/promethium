@@ -1,5 +1,6 @@
-import { render } from "promethium-js";
-import App from "./src/components/App";
+import { h } from "promethium-js";
+import App from "./src/App";
 import "./index.css";
+import { render } from "lit";
 
-render(App, { renderContainer: "body" });
+render(h(App), document.body);

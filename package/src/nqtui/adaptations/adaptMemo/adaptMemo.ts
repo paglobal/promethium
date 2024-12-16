@@ -1,25 +1,16 @@
 import sendSignal from "./sendSignal";
 import get from "../get";
-import setInitialParameters from "../setInitialParameters";
-import setCleanupSet from "../setCleanupSet";
-import { updateValueAndSendFreshNotifications } from "./notifyAndUpdate";
-import { Memo } from "./memoTypes";
+import { updateValueAndSendFreshNotifications } from "./updateValueAndSendFreshNotifications";
+import { InternalMemoObject } from "./memoTypes";
 import { Getter } from "../adaptState/stateTypes";
 
-export default function adaptMemo<T = any>(fn: () => T): Getter<T> {
-  const memo: Memo = {
+export default function adaptMemo<T = any>(fn: (prev?: T) => T): Getter<T> {
+  const memo: InternalMemoObject = {
     //state properties
-    syncSubscriptions: {
-      one: new Set(),
-      two: new Set(),
-    },
-    memoSubscriptions: {
-      one: new Set(),
-      two: new Set(),
-    },
+    syncSubscriptions: new Set(),
+    memoSubscriptions: new Set(),
     asyncAndRenderSubscriptions: new Set(),
-    activeSubscriptions: "one",
-    value: null,
+    value: undefined,
     //effect properties
     firstRun: true,
     type: "memo",
@@ -30,13 +21,18 @@ export default function adaptMemo<T = any>(fn: () => T): Getter<T> {
     cleanupTreeNodePointer: null,
     observableSubscriptionSets: new Set(),
     staleStateValuesCount: 0,
+    falseAlarmSignalsCount: 0,
     sendSignal: (signal) => sendSignal(memo, fn, signal),
   };
 
-  setInitialParameters(memo);
-  setCleanupSet(memo);
+  let freshMemoRun = true;
 
-  const cleanupMemo = updateValueAndSendFreshNotifications(memo, fn);
+  return () => {
+    if (freshMemoRun === true) {
+      updateValueAndSendFreshNotifications(memo, fn);
+      freshMemoRun = false;
+    }
 
-  return cleanupMemo ? () => get<T>(cleanupMemo) : () => get<T>(memo);
+    return get<T>(memo) as T;
+  };
 }

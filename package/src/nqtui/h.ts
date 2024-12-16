@@ -3,139 +3,115 @@ import {
   directive,
   DirectiveResult,
   PartInfo,
-} from "lit-html/async-directive.js";
-import queueRevertChangedToTrue from "./queueRevertChangedToTrue";
-import adaptComponentFnEffect from "./adaptations/adaptEffect/adaptComponentFnEffect";
+} from "lit/async-directive.js";
 import adaptSyncEffect from "./adaptations/adaptEffect/adaptSyncEffect";
-import { ChildPart, noChange, TemplateResult } from "lit-html";
-import { Component } from "./render";
+import { noChange, nothing, TemplateResult } from "lit";
+import { JSX } from "../jsx-runtime";
 
 class $ extends AsyncDirective {
-  updateFlag: "initialize" | "externalRender";
-  cleanups: any[];
-  ComponentDependencyUpdate: any;
-  Component: () => TemplateResult;
-  changed: boolean;
-  props: any;
+  cleanups: (() => void)[];
+  props: any = {};
+  htmlFn?: ReturnType<Component>;
+  Component?: Component<any>;
 
+  // TODO: only allow directive use in the child position
+  // TODO: find out why reconnection doesn't happen
+  // TODO: perform prop diffing and stop unnecessary component initialization
   constructor(partInfo: PartInfo) {
     super(partInfo);
 
-    //boolean flag to enable initialization of the component in the update method.
-    this.updateFlag = "initialize";
-  }
-
-  protected disconnected(): void {
-    this.cleanups.forEach((cleanup) => cleanup());
-  }
-
-  //normal render process
-  externalRender(props: any) {
-    for (const prop in props) {
-      this.props[prop] = props[prop];
-    }
-
-    return this.render();
-  }
-
-  //first time initialization of component
-  initialize(
-    props: any,
-    part: ChildPart,
-    Component: (props: any, parent: Node) => () => TemplateResult
-  ) {
-    this.props = props;
-
-    return this.initializeComponent(Component, part.parentNode, this.props);
-  }
-
-  initializeComponent(
-    Component: (props: any, parent: Node) => () => TemplateResult,
-    parent: Node,
-    props: any
-  ) {
     //initialize cleanups for component. this includes:
     //1. general component cleanup for all its effects and memos
     //2. cleanup of the effect created from the function (that returns a template result) the component returns
     this.cleanups = [];
+  }
 
-    //store the function (that returns a template result) the component returns in `htmlFn` for later us
-    let htmlFn: () => TemplateResult;
-    //initialize component effects and memos and store the cleanup (1st cleanup)
+  disposeComponent() {
+    this.cleanups.forEach((cleanup) => cleanup());
+    this.cleanups = [];
+  }
+
+  protected disconnected() {
+    this.disposeComponent();
+  }
+
+  initializeComponent(reconnected: boolean = false) {
+    //initialize component effects and memos and store the 1st cleanup
     this.cleanups.push(
-      adaptSyncEffect(() => (htmlFn = Component(props, parent)), [])
+      adaptSyncEffect(() => {
+        this.htmlFn = this.Component?.(this.props);
+      }, []),
     );
-
-    const [
-      ComponentCleanup,
-      ComponentDependencyUpdate,
-      [htmlTemplateResult],
-    ]: any = adaptComponentFnEffect(
-      (_, [htmlTemplateResult]: [TemplateResult]) => {
-        this.setValue(htmlTemplateResult);
-      },
-      [htmlFn],
-      { defer: true, isComponent: true }
-    );
-
-    //store 2nd cleanup
-    this.cleanups.push(ComponentCleanup);
-    //store reference to function used to update component return function dependencies and return template
-    //result for rendering
-    this.ComponentDependencyUpdate = ComponentDependencyUpdate;
-
-    this.Component = () => {
-      //check "changed" flag to prevent multiple redundant re-rendering of components.
-      if (this.changed) {
-        this.changed = false;
-        queueRevertChangedToTrue(this);
-
-        const [htmlTemplateResult] = this.ComponentDependencyUpdate?.();
-
-        return htmlTemplateResult;
-      } else {
-        return noChange;
+    let templateResult: unknown;
+    let updateFromLit = true;
+    const componentCleanup = adaptSyncEffect(() => {
+      templateResult = this.htmlFn?.();
+      if (updateFromLit === false || reconnected === true) {
+        this.setValue(templateResult);
       }
-    };
+    });
+    updateFromLit = false;
+    //store 2nd cleanup
+    this.cleanups.push(componentCleanup);
 
-    //initialize "changed" flag as true.
-    this.changed = true;
-    //prevent re-initialization of component on subsequent renders after initialization.
-    this.updateFlag = "externalRender";
-
-    return htmlTemplateResult;
+    return templateResult;
   }
 
-  update(
-    part: ChildPart,
-    [Component, props]: [
-      (props: any, parent: Node) => () => TemplateResult,
-      any
-    ]
-  ) {
-    //initialize component for the first time or go through normal rendering processes based on the state of `updateFlag`
-    return this[this.updateFlag](props, part, Component);
+  protected reconnected() {
+    this.initializeComponent(true);
   }
 
-  protected reconnected(): void {
-    this.updateFlag = "initialize";
-  }
+  render(Component: Component<any>, props?: any) {
+    for (const prop in props) {
+      this.props[prop] = props[prop];
+    }
+    this.Component = Component;
+    this.disposeComponent();
+    const templateResult = this.initializeComponent();
 
-  render() {
-    return this.Component();
+    return templateResult;
   }
 }
 
-declare function hFunc(
-  Component: () => () => TemplateResult,
-  props?: null
-): DirectiveResult;
+export type ComponentFunctionReturnNotToBeUsedOutsideOfLitHTMLExpressions =
+  | string
+  | number
+  | bigint
+  | boolean
+  | null
+  | undefined
+  | TemplateResult
+  | DirectiveResult
+  | Node
+  | typeof nothing
+  | typeof noChange
+  | Iterable<ComponentFunctionReturnNotToBeUsedOutsideOfLitHTMLExpressions>;
 
-declare function hFunc<Type>(
+export type Component<T = null> = T extends null
+  ? (
+      props?: null,
+    ) =>
+      | (() => ComponentFunctionReturnNotToBeUsedOutsideOfLitHTMLExpressions)
+      | null
+  : (
+      props: T,
+    ) =>
+      | (() => ComponentFunctionReturnNotToBeUsedOutsideOfLitHTMLExpressions)
+      | null;
+
+declare function hFn(
+  Component: () => () => ComponentFunctionReturnNotToBeUsedOutsideOfLitHTMLExpressions,
+): DirectiveResult;
+declare function hFn(Component: Component<{}>): DirectiveResult;
+declare function hFn<Type>(
   Component: Component<Type>,
-  props: Type
+  props: Type extends object ? Parameters<typeof Component>[0] : never,
 ): DirectiveResult;
 
-const h: typeof hFunc = directive($);
+const h: typeof hFn = directive($);
+
+export type PromethiumNode =
+  | ComponentFunctionReturnNotToBeUsedOutsideOfLitHTMLExpressions
+  | JSX.Element;
 
 export default h;

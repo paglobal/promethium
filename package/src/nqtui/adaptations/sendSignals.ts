@@ -1,31 +1,18 @@
-import { State } from "./adaptState/stateTypes";
+import { SignalTypes } from "./adaptEffect/effectTypes";
+import { InternalStateObject } from "./adaptState/stateTypes";
 
-function sendStaleSignals(state: State, activeSubscriptions: "one" | "two") {
-  state.memoSubscriptions[activeSubscriptions].forEach((subscription) => {
-    subscription.sendSignal("stale");
-  });
+const subscriptionTypes = [
+  "memoSubscriptions",
+  "syncSubscriptions",
+  "asyncAndRenderSubscriptions",
+] as const;
 
-  state.syncSubscriptions[activeSubscriptions].forEach((subscription) => {
-    subscription.sendSignal("stale");
-  });
-
-  state.asyncAndRenderSubscriptions.forEach((subscription) => {
-    subscription.sendSignal("stale");
-  });
-}
-
-function sendFreshSignals(state: State, activeSubscriptions: "one" | "two") {
-  state.memoSubscriptions[activeSubscriptions].forEach((subscription) => {
-    subscription.sendSignal("fresh");
-  });
-
-  state.syncSubscriptions[activeSubscriptions].forEach((subscription) => {
-    subscription.sendSignal("fresh");
-  });
-
-  state.asyncAndRenderSubscriptions.forEach((subscription) => {
-    subscription.sendSignal("fresh");
+function sendSignals(state: InternalStateObject, signalType: SignalTypes) {
+  subscriptionTypes.forEach((subscriptionType) => {
+    state[subscriptionType].forEach((subscription) => {
+      subscription.sendSignal(signalType);
+    });
   });
 }
 
-export { sendStaleSignals, sendFreshSignals };
+export { sendSignals };

@@ -1,19 +1,22 @@
 import executeFns from "./executeFns";
 import sendSignal from "./sendSignal";
-import setInitialParameters from "../setInitialParameters";
-import setCleanupSet from "../setCleanupSet";
-import { Getter } from "../adaptState/stateTypes";
-import { Effect, EffectFn } from "./effectTypes";
+import {
+  DepArray,
+  InternalEffectObject,
+  EffectFn,
+  ExecuteFn,
+  SignalTypes,
+} from "./effectTypes";
 
-export default function createEffect(
+export default function createEffect<T = any, U extends any[] = any[]>(
   type: "async" | "sync" | "render",
-  tracking: "implicit" | "depArray" | "componentFn",
-  fn: EffectFn,
-  depArray?: Getter<any>[]
+  tracking: "implicit" | "depArray",
+  fn: EffectFn<T, U>,
+  depArray?: DepArray<U>,
 ) {
   const execute = executeFns[tracking];
 
-  const effect: Effect = {
+  const effect: InternalEffectObject<T, U> = {
     //whether or not the effect hasn't been ran before
     firstRun: true,
     //whether the effect is async, sync or a render effect
@@ -34,19 +37,14 @@ export default function createEffect(
     observableSubscriptionSets: new Set(),
     //used to track the number of state values of states currently tracking the effect that are stale
     staleStateValuesCount: 0,
-    //used to store the return value of the previous effect execution
-    returnValue: null,
+    //used to track the number of state values of states currently tracking the effect that say they are stale
+    //but are not actually stale
+    falseAlarmSignalsCount: 0,
     //used to notify the effect when a state value of state currently tracking the effect turns
     //stale or freshens up after turning stale
-    sendSignal: (signal: "fresh" | "stale"): void =>
-      sendSignal(effect, execute, fn, depArray, signal),
+    sendSignal: (signal: SignalTypes): void =>
+      sendSignal(effect, execute as ExecuteFn, fn, signal, depArray),
   };
-
-  //create `cleanupTreeNodePointer` for effect and create `cleanupTree` for effect tree is this is the
-  //topmost parent effect (father of the whole tree)
-  setInitialParameters(effect);
-  //create `cleanupSet` for effect if it doesn't already exist
-  setCleanupSet(effect);
 
   //return effect `execute` function and effect itself
   return [execute, effect] as const;

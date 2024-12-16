@@ -1,7 +1,7 @@
-import { Effect } from "./adaptEffect/effectTypes";
+import { InternalEffectObject } from "./adaptEffect/effectTypes";
 import { effectContexts } from "./effectContexts";
 
-export default function setInitialParameters(effect: Effect) {
+export default function setInitialParameters(effect: InternalEffectObject) {
   const parentEffect = effectContexts[effectContexts.length - 1];
   if (parentEffect) {
     //use "position" and "level" to determine location of effect cleanup
@@ -11,11 +11,13 @@ export default function setInitialParameters(effect: Effect) {
     //the effect's position "n" shows that it's the "nth" child of its parent effect
     effect.position = parentEffect.childCount;
     //the effect's level shows how many levels deep it is nested (one level deeper than its parent effect)
-    effect.level = parentEffect.level + 1;
+    effect.level = (parentEffect.level as number) + 1;
     //all effects in a tree have the same cleanup tree
     effect.cleanupTree = parentEffect.cleanupTree;
     //copy parent's `cleanupTreeNodePointer` and continue from there
-    effect.cleanupTreeNodePointer = [...parentEffect.cleanupTreeNodePointer];
+    effect.cleanupTreeNodePointer = [
+      ...(parentEffect.cleanupTreeNodePointer as number[]),
+    ];
 
     //complete `cleanupTreeNodePointer` for the effect
     //every number's presence in the array represents an extra level of nesting (eg. one number for the first

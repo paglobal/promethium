@@ -1,10 +1,9 @@
-import { Getter } from "../adaptState/stateTypes";
 import createEffect from "./createEffect";
-import { EffectFn, EffectOptions } from "./effectTypes";
+import { EffectFn, EffectOptions, ExecuteFn, DepArray } from "./effectTypes";
 
-export default function adaptSyncEffect(
-  fn: EffectFn,
-  depArray?: Getter<any>[],
+export default function adaptSyncEffect<T = any, U extends any[] = any[]>(
+  fn: EffectFn<T, U>,
+  depArray?: DepArray<U>,
   options?: EffectOptions
 ) {
   //determine if the effect is tracked by the state it uses implicitly, or using the
@@ -14,5 +13,5 @@ export default function adaptSyncEffect(
   const [execute, effect] = createEffect("sync", tracking, fn, depArray);
 
   //return cleanup function / component cleanup array
-  return execute(effect, fn, depArray, options) as () => void;
+  return execute(effect, fn, depArray!, options) as ReturnType<ExecuteFn>;
 }

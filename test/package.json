@@ -5,12 +5,17 @@
   "description": "",
   "scripts": {
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "preview": "vite preview"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "vite": "^3.0.9"
+    "typescript": "5.2.2",
+    "vite": "^4.4.11"
+  },
+  "dependencies": {
+    "lit": "^3.1.3"
   }
 }

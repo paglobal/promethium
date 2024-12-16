@@ -1,49 +1,60 @@
-import { Getter } from "../adaptState/stateTypes";
 import addAsyncEffect from "./addAsyncEffect";
 import addRenderEffect from "./addRenderEffect";
 import {
-  ComponentFnExecuteFn,
-  Effect,
+  DepArray,
+  InternalEffectObject,
   EffectFn,
   ExecuteFn,
+  SignalTypes,
 } from "./effectTypes";
 
-export default function sendSignal(
-  effect: Effect,
-  execute: ExecuteFn | ComponentFnExecuteFn,
-  fn: EffectFn,
-  depArray: Getter[],
-  signal: "stale" | "fresh"
+export default function sendSignal<T = any, U extends any[] = any[]>(
+  effect: InternalEffectObject,
+  execute: ExecuteFn,
+  fn: EffectFn<T, U>,
+  signal: SignalTypes,
+  depArray?: DepArray<U>,
 ) {
   if (signal === "stale") {
     effect.staleStateValuesCount++;
-  } else if (signal === "fresh") {
+    effect.falseAlarmSignalsCount++;
+  } else if (signal === "fresh" || signal === "falseAlarm") {
     effect.staleStateValuesCount--;
+    if (signal === "falseAlarm") {
+      effect.falseAlarmSignalsCount--;
+    }
     if (effect.staleStateValuesCount <= 0) {
-      //to make sure "effect.stateStateValuesCount" doesn't go beyond zero
+      if (effect.falseAlarmSignalsCount > 0) {
+        executeMap[effect.type as "sync" | "render" | "async"](
+          effect,
+          execute,
+          fn,
+          depArray,
+        );
+      }
+      effect.falseAlarmSignalsCount = 0;
       effect.staleStateValuesCount = 0;
-      executeMap[effect.type](effect, execute, fn, depArray);
     }
   }
 }
 
 const executeMap = {
-  sync: (
-    effect: Effect,
+  sync: <T = any, U extends any[] = any[]>(
+    effect: InternalEffectObject,
     execute: ExecuteFn,
-    fn: EffectFn,
-    depArray: Getter[]
-  ) => execute(effect, fn, depArray),
-  async: (
-    effect: Effect,
+    fn: EffectFn<T, U>,
+    depArray?: DepArray<U>,
+  ) => execute(effect, fn, depArray!),
+  async: <T = any, U extends any[] = any[]>(
+    effect: InternalEffectObject,
     execute: ExecuteFn,
-    fn: EffectFn,
-    depArray: Getter[]
-  ) => addAsyncEffect(() => execute(effect, fn, depArray)),
-  render: (
-    effect: Effect,
+    fn: EffectFn<T, U>,
+    depArray?: DepArray<U>,
+  ) => addAsyncEffect(() => execute(effect, fn, depArray!)),
+  render: <T = any, U extends any[] = any[]>(
+    effect: InternalEffectObject,
     execute: ExecuteFn,
-    fn: EffectFn,
-    depArray: Getter[]
-  ) => addRenderEffect(() => execute(effect, fn, depArray)),
+    fn: EffectFn<T, U>,
+    depArray?: DepArray<U>,
+  ) => addRenderEffect(() => execute(effect, fn, depArray!)),
 };

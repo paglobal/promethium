@@ -1,10 +1,12 @@
 import { effectContexts } from "./effectContexts";
-import { State } from "./adaptState/stateTypes";
-import { Effect } from "./adaptEffect/effectTypes";
+import { InternalStateObject } from "./adaptState/stateTypes";
+import { InternalEffectObject } from "./adaptEffect/effectTypes";
 
-function subscribe<T = any>(state: State<T>, effect: Effect) {
+function subscribe<T = any>(
+  state: InternalStateObject<T>,
+  effect: InternalEffectObject,
+) {
   //get active subscriptions to properly manage sync effects and memos
-  const activeSubscriptions = state.activeSubscriptions;
   const type = effect.type;
 
   //if `effect.tracking` is equal to "depArray", don't track effects because the tracking
@@ -19,14 +21,12 @@ function subscribe<T = any>(state: State<T>, effect: Effect) {
     effect.observableSubscriptionSets.add(state.asyncAndRenderSubscriptions);
   } else {
     //tracking sync effects and memos
-    state[`${type}Subscriptions`][activeSubscriptions].add(effect);
-    effect.observableSubscriptionSets.add(
-      state[`${type}Subscriptions`][activeSubscriptions]
-    );
+    state[`${type}Subscriptions`].add(effect);
+    effect.observableSubscriptionSets.add(state[`${type}Subscriptions`]);
   }
 }
 
-export default function get<T = any>(state: State<T>) {
+export default function get<T = any>(state: InternalStateObject<T>) {
   const currentEffect = effectContexts[effectContexts.length - 1];
   if (currentEffect) {
     subscribe(state, currentEffect);
